@@ -1,3 +1,4 @@
+import re
 from robobrowser import RoboBrowser
 from tqdm import tqdm
 import os
@@ -57,7 +58,7 @@ def get_buggy_code():
     global col
     print("GETTING BUGGY CODE\n")
     for i in tqdm(range(sys.argv[2],sys.argv[3])):
-        time.sleep(3)
+        time.sleep(11)
         try:
             browser.open('https://stackoverflow.com/questions/tagged/' + sys.argv[1] + '?sort=newest&page=' + str(i) + '&pagesize=15')
         except:
@@ -69,12 +70,13 @@ def get_buggy_code():
         if questions is None:
             continue
         for question in questions:
+            time.sleep(11)
             question = question.get('href')
             if question is None:
                 continue
             print(Fore.GREEN + stackoverflow + question, end=' ')
             print(Style.RESET_ALL, end='')
-            if col.find_one({'url': stackoverflow + question}) is not None:
+            if col.find({'url': stackoverflow + question, 'type': 'buggy'}).count() >= 1:
                 print(Fore.RED + '- already seen')
                 print(Style.RESET_ALL)
                 continue
@@ -95,23 +97,39 @@ def get_buggy_code():
             elif sys.argv[1] == 'c':
                 Name += '.c'
 
+            ####################################################################
+            tag_holder = browser.find('div', class_='grid ps-relative d-block')
+            if tag_holder is not None:
+                tags = tag_holder.text.replace('\n', '').split(" ")
+                if tags is None:
+                    tags = []
+            else:
+                tags = []
+            ####################################################################
             question_text = browser.find('div', class_= 'post-text')
             if question_text is None:
                 continue
             code_blocks = question_text.find_all('pre')
             # if there's only one code block it is more likely to contain the bug as
             # opposed to a question with multiple blocks of code
-            if len(code_blocks) is 1:
+            if len(code_blocks) > 0:
+                insert_dict = {}
+                insert_dict['codes'] = []
+                first = False
                 for code_block in code_blocks:
                     code = code_block.find('code')
                     if code is not None:
                         code = str(code.text)
-                        print(code)
-                        Code.append(code)
-                        Code.append("buggy")
-                        Code.append(stackoverflow + question) # url
-                        Name_Code[Name] = tuple(Code)
-                        Code = []
+                        print(code+'\n')
+                        insert_dict['codes'].append({"code": code.strip(), "compilation_message": None, "error_type": None, "ast": None})
+                        if not first:
+                            insert_dict['type'] = "buggy"
+                            insert_dict['url'] = stackoverflow + question # url
+                            insert_dict['tags'] = tags
+                        #Name_Code[Name] = tuple(Code)
+                        #Code = []
+                    first = True 
+                col.insert_one({'type': insert_dict['type'].strip(), 'tags': insert_dict['tags'], 'url': insert_dict['url'].strip(), 'language': sys.argv[1].strip(), 'code_and_ast': insert_dict['codes']})
                 print('\n')
             else:
                 continue
@@ -121,7 +139,7 @@ def get_good_code():
     global col
     print("GETTING GOOD CODE\n")
     for i in tqdm(range(sys.argv[2],sys.argv[3])):
-        time.sleep(3)
+        time.sleep(11)
         try:
             browser.open('https://stackoverflow.com/questions/tagged/' + sys.argv[1] + '?sort=newest&page=' + str(i) + '&pagesize=15')
         except:
@@ -133,12 +151,13 @@ def get_good_code():
         if questions is None:
             continue
         for question in questions:
+            time.sleep(11)
             question = question.get('href')
             if question is None:
                 continue
             print(Fore.GREEN + stackoverflow + question, end=' ')
             print(Style.RESET_ALL, end='')
-            if col.find_one({'url': stackoverflow + question}) is not None:
+            if col.find({'url': stackoverflow + question, 'type': 'good'}).count() >= 1:
                 print(Fore.RED + '- already seen')
                 print(Style.RESET_ALL)
                 continue
@@ -159,6 +178,15 @@ def get_good_code():
             elif sys.argv[1] == 'c':
                 Name += '.c'
 
+            #####################################################################
+            tag_holder = browser.find('div', class_='grid ps-relative d-block')
+            if tag_holder is not None:
+                tags = tag_holder.text.replace('\n', '').split(" ")
+                if tags is None:
+                    tags = []
+            else:
+                tags = []
+            #####################################################################
             answers_container = browser.find('div', id= 'answers')
             if answers_container is None:
                 continue
@@ -172,17 +200,24 @@ def get_good_code():
                 answer = answer.find('div', class_='answercell post-layout--right')
                 answer = answer.find('div', class_='post-text')
                 code_blocks = answer.find_all('pre')
-                if len(code_blocks) is 1:
+                if len(code_blocks) > 0:
+                    insert_dict = {}
+                    insert_dict['codes'] = []
+                    first = False
                     for code_block in code_blocks:
                         code = code_block.find('code')
                         if code is not None:
                             code = str(code.text)
-                            print(code)
-                            Code.append(code)
-                            Code.append("good")
-                            Code.append(stackoverflow + question) # url
-                            Name_Code[Name] = tuple(Code)
-                            Code = []
+                            print(code+'\n')
+                            insert_dict['codes'].append({"code": code.strip(), "compilation_message": None, "error_type": None, "ast": None})
+                            if not first:
+                                insert_dict['type'] = "good"
+                                insert_dict['url'] = stackoverflow + question # url
+                                insert_dict['tags'] = tags
+                            #Name_Code[Name] = tuple(Code)
+                            #Code = []
+                        first = True 
+                    col.insert_one({'type': insert_dict['type'].strip(), 'tags': insert_dict['tags'], 'url': insert_dict['url'].strip(), 'language': sys.argv[1].strip(), 'code_and_ast': insert_dict['codes']})
                     print('\n')
                     break
                 else:
@@ -193,9 +228,9 @@ def main():
     global col
     get_buggy_code()
     get_good_code()
-    for key, value in tqdm(Name_Code.items()):
+    #for key, value in tqdm(Name_Code.items()):
         # WRITE TO MONGO INSTEAD
-        col.insert_one({'type': value[1].strip(), 'url': value[2].strip(), 'language': sys.argv[1].strip(), 'code': value[0].strip()})
+        #col.insert_one({'type': value[1].strip(), 'tags': value[3].strip(), 'url': value[2].strip(), 'language': sys.argv[1].strip(), 'code': value[0].strip()})
         #with open(dirname + '/' + key, 'w') as f:
         #    f.write(value[0])
     #return Name_Code
