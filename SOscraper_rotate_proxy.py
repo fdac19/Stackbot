@@ -7,6 +7,13 @@ import time
 from colorama import Fore, Style
 from pymongo import MongoClient
 
+proxy_list = []
+with open('proxies.txt', 'r') as f:
+    for line in f:
+        line = line.replace('\n', '')
+        proxy_list.append(line)
+print(proxy_list)
+
 if len(sys.argv) is not 4:
     print("usage: \"python3 SOscraper.py 'java, c, or python-3.x' from to\"")
     print("'from' is and integer that specifies the beginning page and 'to' is an integer specifies the end page")
@@ -57,13 +64,19 @@ def get_buggy_code():
     global Code
     global col
     print("GETTING BUGGY CODE\n") 
+    pi = 0
     for i in tqdm(range(sys.argv[2],sys.argv[3])):
         #time.sleep(2)
-        try:
-            browser.open('http://stackoverflow.com/questions/tagged/' + sys.argv[1] + '?sort=newest&page=' + str(i) + '&pagesize=15')
-        except:
-            print("Couldn't open http://stackoverflow.com/questions/tagged/" + sys.argv[1] + "?sort=newest&page=" + str(i) + '&pagesize=15')
-            exit()
+        while(True):
+            try:
+                browser.open('http://stackoverflow.com/questions/tagged/' + sys.argv[1] + '?sort=newest&page=' + str(i) + '&pagesize=15', proxies={'http': proxy_list[pi]})
+                break
+            except:
+                print("Couldn't open http://stackoverflow.com/questions/tagged/" + sys.argv[1] + "?sort=newest&page=" + str(i) + '&pagesize=15')
+                pi += 1
+                if pi == len(proxy_list):
+                    print("Ran out of proxies :(")
+                    exit()
         questions_block = browser.find('div', id= 'questions')
         if questions_block is None:
             print("check link")
@@ -86,7 +99,7 @@ def get_buggy_code():
             else:
                 print()
             try:
-                browser.open(stackoverflow + question)
+                browser.open(stackoverflow + question, proxies={'http': proxy_list[pi]})
             except:
                 print("Couldn't open " + (stackoverflow + question))
                 continue
@@ -141,13 +154,19 @@ def get_good_code():
     global Code
     global col
     print("GETTING GOOD CODE\n")
+    pi = 0
     for i in tqdm(range(sys.argv[2],sys.argv[3])):
         #time.sleep(11)
-        try:
-            browser.open('http://stackoverflow.com/questions/tagged/' + sys.argv[1] + '?sort=newest&page=' + str(i) + '&pagesize=15')
-        except:
-            print("Couldn't open http://stackoverflow.com/questions/tagged/" + sys.argv[1] + "?sort=newest&page=" + str(i) + '&pagesize=15')
-            exit()
+        while(True):
+            try:
+                browser.open('http://stackoverflow.com/questions/tagged/' + sys.argv[1] + '?sort=newest&page=' + str(i) + '&pagesize=15', proxies={'http': proxy_list[pi]})
+                break
+            except:
+                print("Couldn't open http://stackoverflow.com/questions/tagged/" + sys.argv[1] + "?sort=newest&page=" + str(i) + '&pagesize=15')
+                pi += 1
+                if pi == len(proxy_list):
+                    print("Ran out of proxies :(")
+                    exit()
         questions_block = browser.find('div', id= 'questions')
         if questions_block is None:
             continue
@@ -168,7 +187,7 @@ def get_good_code():
             else:
                 print()
             try:
-                browser.open(stackoverflow + question)
+                browser.open(stackoverflow + question, proxies={'http': proxy_list[pi]})
             except:
                 print("Couldn't open " + (stackoverflow + question))
                 continue
